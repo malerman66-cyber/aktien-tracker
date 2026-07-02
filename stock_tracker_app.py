@@ -13,26 +13,29 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 st.title("📈 Aktien-Tracker Pro")
-st.caption("Mit Suchfunktion • Mobile optimiert")
+st.caption("Mit ETFs & Indizes • Suchfunktion")
 
-# Session State für Watchlist
+# Session State
 if 'watchlist' not in st.session_state:
-    st.session_state.watchlist = ['AAPL', 'MSFT', 'NVDA', 'TSLA', 'SAP', 'SIE', 'AIR', '^GDAXI']
+    st.session_state.watchlist = [
+        'AAPL', 'MSFT', 'NVDA', 'TSLA', 'SAP', 'SIE', '^GDAXI', 
+        'SPY', 'QQQ', 'VOO', '^GSPC', '^IXIC', 'DAX'
+    ]
 
 # Suchfunktion
-st.sidebar.subheader("🔍 Neue Aktie hinzufügen")
-new_ticker = st.sidebar.text_input("Ticker eingeben (z.B. BAS, IFX, BMW)", "").upper().strip()
+st.sidebar.subheader("🔍 Ticker hinzufügen")
+new_ticker = st.sidebar.text_input("Ticker (z.B. BAS, VWCE, ^STOXX)", "").upper().strip()
 
-if st.sidebar.button("Hinzufügen") and new_ticker:
+if st.sidebar.button("➕ Hinzufügen") and new_ticker:
     if new_ticker not in st.session_state.watchlist:
         st.session_state.watchlist.append(new_ticker)
         st.success(f"{new_ticker} hinzugefügt!")
     else:
-        st.warning("Bereits in der Liste")
+        st.warning("Schon in der Liste")
 
-# Watchlist anzeigen und bearbeiten
+# Watchlist
 st.sidebar.subheader("Deine Watchlist")
-selected_tickers = st.sidebar.multiselect("Aktien auswählen/entfernen", 
+selected_tickers = st.sidebar.multiselect("Auswählen", 
                                         options=st.session_state.watchlist, 
                                         default=st.session_state.watchlist)
 
@@ -49,13 +52,13 @@ for t in selected_tickers:
         hist = stock.history(period=period)
         if not hist.empty:
             info = stock.info
-            news = stock.news[:5]
+            news = stock.news[:5] if hasattr(stock, 'news') else []
             data[t] = (stock, hist, info, news)
     except:
-        st.sidebar.warning(f"Fehler bei {t}")
+        pass
 
-# Hauptansicht
-st.subheader("📊 Watchlist Übersicht")
+# Übersicht
+st.subheader("📊 Watchlist")
 if data:
     rows = []
     for ticker, (_, hist, info, _) in data.items():
@@ -66,24 +69,26 @@ if data:
             "Ticker": ticker,
             "Kurs": round(current, 2),
             "± %": round(change, 2),
-            "KGV": round(pe, 1) if pe else "N/A",
-            "Name": info.get('longName', ticker)[:25]
+            "KGV": round(pe, 1) if pe else "-",
+            "Name": info.get('longName', ticker)[:28]
         })
     st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
 
-# Detail
+# Detailansicht
 if data:
-    selected = st.selectbox("Detaillierte Ansicht", options=list(data.keys()))
+    selected = st.selectbox("Detaillierte Ansicht", list(data.keys()))
     _, hist, info, news = data[selected]
     
     col1, col2 = st.columns([3,1])
     with col1:
-        fig = go.Figure(data=[go.Candlestick(x=hist.index, open=hist['Open'], high=hist['High'], low=hist['Low'], close=hist['Close'])])
-        fig.update_layout(title=f"{selected} Kursverlauf", height=500)
+        fig = go.Figure(data=[go.Candlestick(x=hist.index,
+                        open=hist['Open'], high=hist['High'],
+                        low=hist['Low'], close=hist['Close'])])
+        fig.update_layout(title=f"{selected} - Kursverlauf", height=500)
         st.plotly_chart(fig, use_container_width=True)
     
     with col2:
-        st.metric("Aktueller Kurs", f"{hist['Close'].iloc[-1]:.2f}")
+        st.metric("Kurs", f"{hist['Close'].iloc[-1]:.2f}")
         pe = info.get('trailingPE') or info.get('forwardPE')
         st.metric("KGV", f"{pe:.1f}" if pe else "N/A")
         
@@ -93,6 +98,6 @@ if data:
 
     st.subheader("📰 Nachrichten")
     for n in news:
-        st.write(f"• {n.get('title', 'Keine Nachricht')}")
+        st.write(f"• {n.get('title', 'Keine aktuellen Nachrichten')}")
 
-st.caption("Tipp: Ticker wie BAS, IFX, BMW, ALV, DTE eingeben")
+st.caption("Beispiele: VWCE.DE, EUNL.DE, ^STOXX, QQQ, SPY, IWM")
